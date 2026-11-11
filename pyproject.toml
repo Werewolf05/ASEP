@@ -27,6 +27,9 @@ dev = [
 pythonpath = ["."]
 
 testpaths = ["tests"]
+markers = [
+    "docker_integration: requires a live Docker daemon and the ASEP verification image",
+]
 
 [tool.ruff]
 line-length = 100

@@ -1,24 +1,39 @@
 # ASEP roadmap
 
-## Milestone 1
+## Milestone 1: foundation
 
-- issue intake and validation
-- repository inspection and safe repository path checks
+- issue intake and Pydantic validation
+- repository inspection with configured path restrictions
 - deterministic mock planning
 
-## Milestone 2
+## Milestone 2.1: security corrections and verification foundation
 
-- isolated Git worktrees
-- patch generation validation and diff capture
-- independent verification evidence collection
-- Docker sandbox awareness and safety checks
+Implemented, then independently validated before being considered complete:
 
-## Milestone 3
+- isolated worktrees with dirty-repository refusal and safe cleanup
+- proposal-wide path/size validation and safe, atomic patch writes
+- complete patch/evidence for created, modified, deleted, and renamed files
+- task-scoped in-memory evidence storage
+- Docker-only repository test, lint, and type-check execution
+- explicit verification statuses and actual Git-state checks
 
-- VGRO decision engine
-- repair loops and bounded retries
-- optimization benchmarking and evidence-based acceptance policies
+## Milestone 2 readiness gate
 
-## Milestone 4
+Do not begin VGRO until:
 
-- persistence, release review, and human approval gates
+- `pytest -q`, `ruff check .`, and `mypy app` pass
+- the verification Docker image builds successfully
+- the actual Docker integration tests pass (not only mocked Docker tests)
+- task evidence and worktree integrity tests pass
+
+## Milestone 3: VGRO
+
+- deterministic decision engine with ACCEPT, RETRY, REPAIR, OPTIMIZE, REJECT, and HUMAN_REVIEW
+- bounded repair attempts and mandatory-check policy
+- audit trail and experiments driven by structured evidence
+
+## Later milestones
+
+- database-backed durable evidence
+- benchmarks and optimization evidence
+- release-candidate review and explicit human approval

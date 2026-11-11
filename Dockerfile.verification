@@ -1,0 +1,31 @@
+FROM python:3.11.11-slim-bookworm@sha256:081075da77b2b55c23c088251026fb69a7b2bf92471e491ff5fd75c192fd38e5
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+RUN rm -f /etc/apt/sources.list.d/debian.sources \
+    && printf '%s\n' \
+       'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20250224T000000Z bookworm main' \
+       'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/20250224T000000Z bookworm-updates main' \
+       'deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/20250224T000000Z bookworm-security main' \
+       > /etc/apt/sources.list \
+    && apt-get -o Acquire::Check-Valid-Until=false update \
+    && apt-get install -y --no-install-recommends git=1:2.39.5-0+deb12u2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 asep \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin asep
+
+COPY verification-requirements.txt /tmp/verification-requirements.txt
+RUN python -m pip install --requirement /tmp/verification-requirements.txt \
+    && python -m pip check \
+    && rm /tmp/verification-requirements.txt
+
+WORKDIR /opt/asep
+COPY pyproject.toml README.md ./
+COPY app ./app
+RUN python -m pip install --no-deps --no-build-isolation .
+
+USER 1000:1000
+WORKDIR /workspace
+CMD ["python", "--version"]

@@ -65,7 +65,7 @@ class MockAIProvider(AIProvider):
                 "changes": [],
             }
 
-        file_name = "service.py"
+        file_name = "asep_generated.py"
         content = (
             "def sanitize_value(value):\n"
             "    if value is None:\n"

@@ -4,7 +4,7 @@ Autonomous Software Engineer Platform (ASEP) is a Python-based engineering platf
 
 ## Milestones
 
-The project is currently in Milestone 2: isolated patch generation and independent verification.
+The project is currently in the Milestone 2.1 security correction phase. VGRO is not implemented.
 
 ### Milestone 1 complete
 
@@ -14,13 +14,13 @@ The project is currently in Milestone 2: isolated patch generation and independe
 - Deterministic mock AI planning for repository-specific implementation work
 - API-oriented foundation for future patch generation and verification
 
-### Milestone 2 includes
+### Milestone 2 foundation
 
 - Isolated Git worktrees for engineering tasks
-- Deterministic mock patch generation and validation
-- Patch artifact hashing and diff capture
-- Verification evidence collection with Docker-aware execution
-- Evidence retrieval and task lifecycle tracking
+- Deterministic mock patch proposals
+- Task-scoped in-memory evidence storage
+- Docker-only repository verification (no host fallback)
+- Structured check/report statuses and evidence retrieval
 
 ## Architecture overview
 
@@ -55,12 +55,52 @@ cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
+The service uses the deterministic mock provider and stores tasks/evidence in memory.
+Set `ASEP_ALLOWED_REPO_ROOTS` to comma-separated repository roots before startup if
+the default roots do not include your repositories.
+
+## Docker verification image
+
+Verification will not run pytest, Ruff, or mypy on the host. Build the required image
+before requesting verification:
+
+```bash
+docker build --file Dockerfile.verification --tag asep-verification:0.1.0 .
+```
+
+The image uses a digest-pinned Python release, pinned Python requirements, and a
+pinned Debian package snapshot for Git. The task-worktree bind mount is privately
+SELinux-relabelled (`:Z`) for Fedora. If Docker or this exact image is unavailable, the
+report is `BLOCKED`; ASEP does not pull another image or fall back to host execution.
+
+## Validation
+
+Unit tests (Docker interactions are mocked except for explicit integration tests):
+
+```bash
+pytest -q
+ruff check .
+mypy app
+```
+
+Actual Docker integration tests require the built image and a working daemon:
+
+```bash
+pytest -q tests/integration/test_docker_sandbox.py
+```
+
+These are real Docker calls, not mocks. They skip if the daemon or image is missing.
+
 ## API endpoints
 
 - `GET /health`
 - `POST /api/v1/issues`
 - `POST /api/v1/repositories/inspect`
 - `POST /api/v1/agent/plan`
+- `POST /api/v1/agent/patch`
+- `POST /api/v1/verification/run`
+- `GET /api/v1/tasks/{task_id}`
+- `GET /api/v1/tasks/{task_id}/evidence`
 
 ## Example issue request
 
@@ -92,6 +132,13 @@ uvicorn app.main:app --reload
 
 ## Notes
 
-- No arbitrary repository code is executed by the host environment.
-- Repository discovery is restricted to configured allowed directories.
+- Repository test/lint/type-check code runs only inside the restricted Docker sandbox.
+- Git metadata commands run on the host; arbitrary repository code does not.
+- Worktree creation rejects dirty repositories. The original working tree is not patched.
+- Worktree population avoids repository checkout hooks and Git filters on the host.
+- Verification results use `PASS`, `FAIL`, `ERROR`, and `SKIPPED` check statuses, with
+  `VERIFIED`, `FAILED`, `INCOMPLETE`, or `BLOCKED` report statuses. Skipped checks
+  cannot produce `VERIFIED`.
+- Task and evidence storage is in-memory and is lost when the service restarts.
 - The mock provider is intentionally deterministic for development and testing.
+- No commit, merge, push, deployment, VGRO decision, or autonomous repair is performed.

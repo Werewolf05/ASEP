@@ -1,37 +1,28 @@
 # Development roadmap
 
-## Milestone 1: foundation and issue-to-plan workflow
+## Milestone 1: foundation
 
-Completed in this milestone:
+- issue intake and Pydantic validation
+- repository inspection with configured path restrictions
+- deterministic mock planning
 
-- FastAPI application bootstrapping
-- Health and issue endpoints
-- Repository path validation against configured roots
-- Local repository inspection
-- Deterministic mock planning flow
-- Basic tests, docs, and initial environment configuration
+## Milestone 2.1: security corrections and verification foundation
 
-## Milestone 2: verification-gated workflow
+- collision-resistant task IDs and per-task Git worktrees
+- dirty source repositories refused; worktree cleanup does not force-remove changes
+- prevalidated, path-safe patch writes with file and total patch limits
+- complete patch diff and hashes for new, modified, deleted, and renamed files
+- task-scoped in-memory evidence retrieval
+- Docker-only repository test, lint, and type-check execution
+- independent Git state and patch hash validation
 
-Planned work includes:
+VGRO is intentionally deferred until actual Docker-backed suite verification and
+the security acceptance checks pass. Use [roadmap.md](./roadmap.md) as the current
+readiness gate.
 
-- Explicit verification evidence models
-- Test and lint execution wrappers
-- Security scanning hooks
-- Structured decision states for ACCEPT, RETRY, REPAIR, REJECT, and HUMAN_REVIEW
+## Future work
 
-## Milestone 3: optimization and auditing
-
-Planned work includes:
-
-- Benchmarking support for original vs. modified code
-- Evidence recording and audit trails
-- Policy-based gating for optimization and release decisions
-
-## Milestone 4: persistence and product maturity
-
-Planned work includes:
-
-- SQLite persistence for issues, patches, and verification runs
-- PostgreSQL migration path
-- Release-candidate review flow and human approval gating
+- deterministic VGRO decisions and bounded repair attempts
+- durable SQLAlchemy persistence for tasks and evidence
+- benchmark-based optimization acceptance
+- human-gated release candidates

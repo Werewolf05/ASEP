@@ -15,6 +15,8 @@ class LifecycleStatus(str, Enum):
     VERIFYING = "VERIFYING"
     VERIFIED = "VERIFIED"
     FAILED = "FAILED"
+    INCOMPLETE = "INCOMPLETE"
+    BLOCKED = "BLOCKED"
     REJECTED = "REJECTED"
     HUMAN_REVIEW_REQUIRED = "HUMAN_REVIEW_REQUIRED"
 
@@ -54,6 +56,7 @@ class PatchArtifact(BaseModel):
     patch_size: int
     diff: str
     changed_files: list[str] = Field(default_factory=list)
+    file_changes: list[FileChange] = Field(default_factory=list)
     changed_file_hashes: dict[str, str] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     summary: str = ""
@@ -65,7 +68,9 @@ class VerificationCheck(BaseModel):
     check_id: str
     check_name: str
     command: list[str]
-    status: str
+    status: CheckStatus
+    commands: list[list[str]] = Field(default_factory=list)
+    mandatory: bool = True
     exit_code: int | None = None
     duration_ms: int | None = None
     stdout: str = ""
@@ -77,16 +82,38 @@ class VerificationReport(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     task_id: str
-    status: str
+    status: ReportStatus
     summary: str
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     checks: list[VerificationCheck] = Field(default_factory=list)
     docker_available: bool = False
+    image_available: bool = False
+
+
+class CheckStatus(str, Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    ERROR = "ERROR"
+    SKIPPED = "SKIPPED"
+
+
+class ReportStatus(str, Enum):
+    VERIFIED = "VERIFIED"
+    FAILED = "FAILED"
+    INCOMPLETE = "INCOMPLETE"
+    BLOCKED = "BLOCKED"
+
+
+class FileChange(BaseModel):
+    status: str
+    path: str
+    previous_path: str | None = None
 
 
 class TaskEvidence(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     task: EngineeringTask
+    worktree: WorktreeRecord | None = None
     patch: PatchArtifact | None = None
     verification: VerificationReport | None = None

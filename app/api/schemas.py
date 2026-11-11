@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from typing import Any
+from datetime import datetime
+from pathlib import Path
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
 from app.models.issue import IssueCreate, IssueRecord, RepositoryInspectionResult
-from app.models.task import EngineeringTask, PatchArtifact, VerificationReport
+from app.models.task import (
+    LifecycleStatus,
+    PatchArtifact,
+    VerificationReport,
+    WorktreeRecord,
+)
+
+TaskId = Annotated[str, Field(pattern=r"^task-[0-9a-f]{32}$")]
 
 
 class HealthResponse(BaseModel):
@@ -77,17 +86,49 @@ class EngineeringTaskRequest(BaseModel):
 
 
 class PatchGenerationResponse(BaseModel):
-    task_id: str
-    status: str
-    task: EngineeringTask
+    task_id: TaskId
+    status: LifecycleStatus
+    task: PublicTask
     patch: PatchArtifact
 
 
 class VerificationRequest(BaseModel):
-    task_id: str = Field(..., min_length=1)
+    task_id: TaskId
+
+
+class PublicTask(BaseModel):
+    task_id: TaskId
+    title: str
+    description: str
+    repository_name: str
+    status: LifecycleStatus
+    base_commit_sha: str | None = None
+    created_at: datetime
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class PublicWorktree(BaseModel):
+    task_id: TaskId
+    repository_name: str
+    base_commit_sha: str
+    created_at: datetime
+    dirty_repository: bool
+    cleanup_completed: bool
+
+    @classmethod
+    def from_record(cls, record: WorktreeRecord) -> PublicWorktree:
+        return cls(
+            task_id=record.task_id,
+            repository_name=Path(record.original_repository_path).name,
+            base_commit_sha=record.base_commit_sha,
+            created_at=record.created_at,
+            dirty_repository=record.dirty_repository,
+            cleanup_completed=record.cleanup_completed,
+        )
 
 
 class TaskEvidenceResponse(BaseModel):
-    task: EngineeringTask
+    task: PublicTask
+    worktree: PublicWorktree | None = None
     patch: PatchArtifact | None = None
     verification: VerificationReport | None = None
