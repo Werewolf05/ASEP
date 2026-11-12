@@ -62,6 +62,14 @@ class PatchArtifact(BaseModel):
     summary: str = ""
 
 
+class FailureClassification(str, Enum):
+    RECOVERABLE_CORRECTNESS = "RECOVERABLE_CORRECTNESS"
+    TRANSIENT_INFRASTRUCTURE = "TRANSIENT_INFRASTRUCTURE"
+    NON_RECOVERABLE = "NON_RECOVERABLE"
+    SECURITY = "SECURITY"
+    UNKNOWN = "UNKNOWN"
+
+
 class VerificationCheck(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -69,6 +77,7 @@ class VerificationCheck(BaseModel):
     check_name: str
     command: list[str]
     status: CheckStatus
+    failure_classification: FailureClassification = FailureClassification.UNKNOWN
     commands: list[list[str]] = Field(default_factory=list)
     mandatory: bool = True
     exit_code: int | None = None

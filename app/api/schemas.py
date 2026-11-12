@@ -13,6 +13,7 @@ from app.models.task import (
     VerificationReport,
     WorktreeRecord,
 )
+from app.vgro.models import VGRODecisionResult
 
 TaskId = Annotated[str, Field(pattern=r"^task-[0-9a-f]{32}$")]
 
@@ -132,3 +133,4 @@ class TaskEvidenceResponse(BaseModel):
     worktree: PublicWorktree | None = None
     patch: PatchArtifact | None = None
     verification: VerificationReport | None = None
+    latest_vgro_decision: VGRODecisionResult | None = None

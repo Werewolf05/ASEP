@@ -16,13 +16,19 @@
 - Docker-only repository test, lint, and type-check execution
 - independent Git state and patch hash validation
 
-VGRO is intentionally deferred until actual Docker-backed suite verification and
-the security acceptance checks pass. Use [roadmap.md](./roadmap.md) as the current
-readiness gate.
+## Milestone 3.0: deterministic VGRO decision engine
+
+- independent decision engine over structured task-scoped evidence
+- hard security/integrity rejection and fail-closed missing evidence
+- bounded retry/repair recommendations with in-memory attempt tracking
+- policy-versioned reasons and evidence references
+- API evaluation and latest-decision retrieval
+
+Use [roadmap.md](./roadmap.md) for implemented scope and readiness details.
 
 ## Future work
 
-- deterministic VGRO decisions and bounded repair attempts
+- recovery execution behind an additional safety gate
 - durable SQLAlchemy persistence for tasks and evidence
 - benchmark-based optimization acceptance
 - human-gated release candidates

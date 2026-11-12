@@ -32,6 +32,7 @@ from app.models.task import (
     VerificationReport,
 )
 from app.services.container import AppServices
+from app.vgro.models import VGRODecisionResult, VGROEvidence
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -270,9 +271,70 @@ def get_task_evidence(
         report = services.task_service.get_verification_report(task_id)
     except KeyError:
         report = None
+    try:
+        decision = services.task_service.get_latest_vgro_decision(task_id)
+    except KeyError:
+        decision = None
     return TaskEvidenceResponse(
         task=_public_task(task),
         worktree=PublicWorktree.from_record(worktree) if worktree else None,
         patch=patch,
         verification=report,
+        latest_vgro_decision=decision,
     )
+
+
+@router.post(
+    "/api/v1/tasks/{task_id}/evaluate",
+    response_model=VGRODecisionResult,
+)
+def evaluate_task(
+    task_id: TaskId,
+    services: Annotated[AppServices, Depends(get_services)],
+) -> VGRODecisionResult:
+    try:
+        task = services.task_service.get_task(task_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    try:
+        worktree = services.task_service.get_worktree(task_id)
+    except KeyError:
+        worktree = None
+    try:
+        patch = services.task_service.get_patch(task_id)
+    except KeyError:
+        patch = None
+    try:
+        verification = services.task_service.get_verification_report(task_id)
+    except KeyError:
+        verification = None
+
+    evidence = VGROEvidence(
+        task_id=task_id,
+        task=task,
+        worktree=worktree,
+        patch=patch,
+        verification=verification,
+        recovery_attempts=services.recovery_tracker.list_attempts(task_id),
+    )
+    decision = services.vgro_engine.evaluate(evidence, services.vgro_policy)
+    services.task_service.store_vgro_decision(task_id, decision)
+    return decision
+
+
+@router.get(
+    "/api/v1/tasks/{task_id}/decision",
+    response_model=VGRODecisionResult,
+)
+def get_latest_vgro_decision(
+    task_id: TaskId,
+    services: Annotated[AppServices, Depends(get_services)],
+) -> VGRODecisionResult:
+    try:
+        return services.task_service.get_latest_vgro_decision(task_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc

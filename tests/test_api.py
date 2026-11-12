@@ -186,3 +186,101 @@ def test_rejected_patch_leaves_task_rejected(tmp_path) -> None:
 def test_task_endpoints_validate_task_ids() -> None:
     assert client.get("/api/v1/tasks/not-a-task-id").status_code == 422
     assert client.get("/api/v1/tasks/not-a-task-id/evidence").status_code == 422
+
+
+def test_vgro_evaluation_and_latest_decision_endpoints() -> None:
+    import hashlib
+
+    from app.models.task import (
+        CheckStatus,
+        LifecycleStatus,
+        PatchArtifact,
+        ReportStatus,
+        VerificationCheck,
+        VerificationReport,
+        WorktreeRecord,
+    )
+
+    services = app.state.services
+    task = services.task_service.create_task(
+        "VGRO API decision",
+        "Verify that VGRO exposes a stored decision without host paths.",
+        "/private/repositories/vgro-api-test",
+    )
+    base_sha = "d" * 40
+    worktree = WorktreeRecord(
+        task_id=task.task_id,
+        original_repository_path=task.repository_path,
+        worktree_path="/private/worktrees/vgro-api-test",
+        base_commit_sha=base_sha,
+    )
+    services.task_service.store_worktree(task.task_id, worktree)
+    services.task_service.update_task(
+        task.task_id,
+        status=LifecycleStatus.WORKTREE_READY,
+        base_commit_sha=base_sha,
+        worktree_path=worktree.worktree_path,
+    )
+    services.task_service.update_task(task.task_id, status=LifecycleStatus.PATCH_GENERATED)
+    services.task_service.update_task(task.task_id, status=LifecycleStatus.PATCH_APPLIED)
+
+    diff = "diff --git a/src/api.py b/src/api.py\n"
+    patch = PatchArtifact(
+        task_id=task.task_id,
+        patch_id="patch-vgro-api-test",
+        patch_sha256=hashlib.sha256(diff.encode()).hexdigest(),
+        patch_size=len(diff.encode()),
+        diff=diff,
+        changed_files=["src/api.py"],
+    )
+    services.task_service.store_patch(task.task_id, patch)
+    checks = [
+        VerificationCheck(
+            check_id=check_id,
+            check_name=check_name,
+            command=[check_id],
+            status=CheckStatus.PASS,
+            mandatory=True,
+            exit_code=0,
+        )
+        for check_id, check_name in (
+            ("changed-paths", "Changed-path validation"),
+            ("patch-integrity", "Patch integrity"),
+            ("docker-pytest", "pytest verification"),
+            ("docker-ruff", "ruff verification"),
+            ("docker-mypy", "mypy verification"),
+        )
+    ]
+    report = VerificationReport(
+        task_id=task.task_id,
+        status=ReportStatus.VERIFIED,
+        summary="All required checks passed.",
+        checks=checks,
+        docker_available=True,
+        image_available=True,
+    )
+    services.task_service.store_verification_report(task.task_id, report)
+    services.task_service.update_task(task.task_id, status=LifecycleStatus.VERIFYING)
+    services.task_service.update_task(task.task_id, status=LifecycleStatus.VERIFIED)
+
+    response = client.post(f"/api/v1/tasks/{task.task_id}/evaluate")
+
+    assert response.status_code == 200
+    decision = response.json()
+    assert decision["task_id"] == task.task_id
+    assert decision["decision"] == "ACCEPT"
+    assert "CORRECTNESS_GATE_PASSED" in decision["reason_codes"]
+    assert f"task:{task.task_id}" in decision["evidence_references"]
+    assert "/private/" not in response.text
+
+    latest = client.get(f"/api/v1/tasks/{task.task_id}/decision")
+    assert latest.status_code == 200
+    assert latest.json() == decision
+    evidence = client.get(f"/api/v1/tasks/{task.task_id}/evidence")
+    assert evidence.status_code == 200
+    assert evidence.json()["latest_vgro_decision"] == decision
+    assert "/private/" not in evidence.text
+
+    unknown = "task-" + "0" * 32
+    assert client.post(f"/api/v1/tasks/{unknown}/evaluate").status_code == 404
+    assert client.get(f"/api/v1/tasks/{unknown}/decision").status_code == 404

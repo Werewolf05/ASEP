@@ -11,6 +11,9 @@ from app.services.patch_service import PatchGenerationService
 from app.services.task_service import TaskService
 from app.services.verification_service import VerificationService
 from app.services.worktree_manager import WorktreeManager
+from app.vgro.decision_engine import VGRODecisionEngine
+from app.vgro.models import VGROPolicy
+from app.vgro.recovery_tracker import RecoveryAttemptTracker
 
 
 @dataclass
@@ -22,9 +25,16 @@ class AppServices:
     task_service: TaskService
     patch_service: PatchGenerationService
     verification_service: VerificationService
+    vgro_engine: VGRODecisionEngine
+    vgro_policy: VGROPolicy
+    recovery_tracker: RecoveryAttemptTracker
 
     @classmethod
-    def create(cls, settings: Settings | None = None) -> AppServices:
+    def create(
+        cls,
+        settings: Settings | None = None,
+        vgro_policy: VGROPolicy | None = None,
+    ) -> AppServices:
         config = settings or load_settings()
         worktrees = WorktreeManager()
         docker = DockerSandboxService()
@@ -42,4 +52,7 @@ class AppServices:
                 worktree_manager=worktrees,
             ),
             verification_service=VerificationService(docker),
+            vgro_engine=VGRODecisionEngine(),
+            vgro_policy=vgro_policy or VGROPolicy(),
+            recovery_tracker=RecoveryAttemptTracker(),
         )

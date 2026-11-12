@@ -19,21 +19,32 @@ Implemented, then independently validated before being considered complete:
 
 ## Milestone 2 readiness gate
 
-Do not begin VGRO until:
+VGRO development was gated on:
 
 - `pytest -q`, `ruff check .`, and `mypy app` pass
 - the verification Docker image builds successfully
 - the actual Docker integration tests pass (not only mocked Docker tests)
 - task evidence and worktree integrity tests pass
 
-## Milestone 3: VGRO
+## Milestone 3.0: deterministic VGRO decision engine
 
-- deterministic decision engine with ACCEPT, RETRY, REPAIR, OPTIMIZE, REJECT, and HUMAN_REVIEW
-- bounded repair attempts and mandatory-check policy
-- audit trail and experiments driven by structured evidence
+Implemented:
+
+- independent Pydantic VGRO domain models and deterministic decision engine
+- task/patch/verification ownership checks and independent patch digest validation
+- mandatory-check, security, prohibited-path, and missing-evidence decision rules
+- bounded RETRY/REPAIR recommendations and an in-memory attempt tracker
+- policy version, structured reason codes, and evidence references in results
+- task-scoped evaluation and latest-decision API endpoints
+
+Recovery execution is not implemented. Ordinary failures remain unclassified unless
+trusted structured evidence explicitly marks them recoverable or transient. Optimization
+eligibility is a decision only; no benchmarks or optimization runs occur. `ACCEPT` does
+not imply human approval to merge or deploy.
 
 ## Later milestones
 
 - database-backed durable evidence
+- autonomous recovery execution behind a separate safety gate
 - benchmarks and optimization evidence
 - release-candidate review and explicit human approval

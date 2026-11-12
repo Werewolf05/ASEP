@@ -4,7 +4,9 @@ Autonomous Software Engineer Platform (ASEP) is a Python-based engineering platf
 
 ## Milestones
 
-The project is currently in the Milestone 2.1 security correction phase. VGRO is not implemented.
+The project has completed the Milestone 2.1 verification security gate and now includes
+the first deterministic VGRO decision engine (Milestone 3.0). Recovery execution,
+benchmarking, durable storage, and deployment remain out of scope.
 
 ### Milestone 1 complete
 
@@ -21,6 +23,14 @@ The project is currently in the Milestone 2.1 security correction phase. VGRO is
 - Task-scoped in-memory evidence storage
 - Docker-only repository verification (no host fallback)
 - Structured check/report statuses and evidence retrieval
+
+### Milestone 3.0: VGRO decision engine
+
+- Deterministic, infrastructure-independent decisions from task, patch, worktree, and verification evidence
+- Hard rejection of invalid patch hashes, failed integrity checks, security failures, and prohibited paths
+- Human review for missing, skipped, blocked, inconclusive, or misassociated evidence
+- Bounded retry and repair recommendations; an in-memory tracker records attempts but does not execute them
+- Optimization eligibility only after all mandatory correctness checks pass
 
 ## Architecture overview
 
@@ -99,6 +109,8 @@ These are real Docker calls, not mocks. They skip if the daemon or image is miss
 - `POST /api/v1/agent/plan`
 - `POST /api/v1/agent/patch`
 - `POST /api/v1/verification/run`
+- `POST /api/v1/tasks/{task_id}/evaluate`
+- `GET /api/v1/tasks/{task_id}/decision`
 - `GET /api/v1/tasks/{task_id}`
 - `GET /api/v1/tasks/{task_id}/evidence`
 
@@ -139,6 +151,15 @@ These are real Docker calls, not mocks. They skip if the daemon or image is miss
 - Verification results use `PASS`, `FAIL`, `ERROR`, and `SKIPPED` check statuses, with
   `VERIFIED`, `FAILED`, `INCOMPLETE`, or `BLOCKED` report statuses. Skipped checks
   cannot produce `VERIFIED`.
-- Task and evidence storage is in-memory and is lost when the service restarts.
+- VGRO consumes structured stored evidence, not an agent's self-assessment. Its default
+  policy requires changed-path validation, patch-integrity, pytest, Ruff, and mypy;
+  prohibits common secret paths; allows at most one explicitly classified retry and
+  one repair; and leaves optimization disabled.
+- `ACCEPT` means the evidence passed VGRO's correctness gate. It is not approval to
+  merge or deploy. Production deployment remains human-gated and is not implemented.
+- `RETRY` and `REPAIR` are recommendations only. VGRO does not execute recovery,
+  benchmarks, or optimization attempts. Unclassified failures require human review.
+- VGRO decisions and recovery-attempt records are retained in memory; the task stores
+  only the latest decision, and all evidence is lost when the service restarts.
 - The mock provider is intentionally deterministic for development and testing.
-- No commit, merge, push, deployment, VGRO decision, or autonomous repair is performed.
+- No commit, merge, push, deployment, or autonomous repair is performed.

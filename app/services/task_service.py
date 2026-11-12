@@ -11,6 +11,7 @@ from app.models.task import (
     VerificationReport,
     WorktreeRecord,
 )
+from app.vgro.models import VGRODecisionResult
 
 _TRANSITIONS: dict[LifecycleStatus, set[LifecycleStatus]] = {
     LifecycleStatus.CREATED: {
@@ -54,6 +55,7 @@ class TaskService:
         self._worktrees: dict[str, WorktreeRecord] = {}
         self._patches: dict[str, PatchArtifact] = {}
         self._verification_reports: dict[str, VerificationReport] = {}
+        self._vgro_decisions: dict[str, VGRODecisionResult] = {}
         self._lock = threading.RLock()
 
     def create_task(self, title: str, description: str, repository_path: str) -> EngineeringTask:
@@ -133,6 +135,21 @@ class TaskService:
             if report is None:
                 raise KeyError(f"Verification report for task '{task_id}' was not found.")
             return report.model_copy(deep=True)
+
+    def store_vgro_decision(self, task_id: str, decision: VGRODecisionResult) -> None:
+        with self._lock:
+            self._require_task(task_id)
+            if decision.task_id != task_id:
+                raise ValueError("VGRO decision belongs to a different task.")
+            self._vgro_decisions[task_id] = decision.model_copy(deep=True)
+
+    def get_latest_vgro_decision(self, task_id: str) -> VGRODecisionResult:
+        with self._lock:
+            self._require_task(task_id)
+            decision = self._vgro_decisions.get(task_id)
+            if decision is None:
+                raise KeyError(f"VGRO decision for task '{task_id}' was not found.")
+            return decision.model_copy(deep=True)
 
     def all_tasks(self) -> Iterable[EngineeringTask]:
         with self._lock:

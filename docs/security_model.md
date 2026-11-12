@@ -35,6 +35,43 @@ Patch SHA-256 is checked against the actual worktree diff. Changed paths are ind
 
 Task, worktree, patch, and verification evidence are retained in a task-ID-scoped in-memory store. API responses omit absolute host paths. This is not durable storage: restarting the service loses the in-memory evidence.
 
+## VGRO decision gate
+
+VGRO is a deterministic domain component. It consumes the stored task lifecycle,
+worktree base commit, patch artifact and digest, verification report/check statuses,
+failure classifications, configured policy, and recorded attempt history. It never
+consumes an AI agent's assertion that a patch is correct.
+
+Before any positive decision, VGRO checks task ownership across evidence records,
+recomputes the patch SHA-256 and byte size, requires the independent
+`patch-integrity` check to pass, and requires every policy-mandated check to be present
+and backed by a recorded command and successful exit code. The default required checks
+are changed-path validation, patch integrity,
+pytest, Ruff, and mypy. Blocked/incomplete reports, unavailable Docker/image, missing
+or skipped checks, errors, inconsistent task state, and unknown failure
+classifications cannot yield `ACCEPT` or `OPTIMIZE`.
+
+Security failures, prohibited path changes, invalid patch hashes, and failed patch
+integrity checks yield `REJECT`. A test failure is not assumed repairable: only an
+explicit `RECOVERABLE_CORRECTNESS` classification with repair budget permits a
+`REPAIR` recommendation. `RETRY` requires an explicit
+`TRANSIENT_INFRASTRUCTURE` classification and retry budget. Unknown or conflicting
+classifications require human review. Defaults permit at most one retry and one
+repair; attempts are recorded in a task-scoped in-memory tracker and cannot exceed
+policy budgets.
+
+Every decision records a policy version, reason codes, human-readable reasons,
+evidence references, remaining budgets, and human-approval requirement. Evaluation
+is read-only with respect to the task/worktree lifecycle. `ACCEPT` means only that
+the stored evidence passed this gate; it does not authorize commit, merge, release,
+optimization execution, or production deployment. Release remains a future
+human-gated capability.
+
+`POST /api/v1/tasks/{task_id}/evaluate` evaluates the task's stored evidence and
+persists the latest decision. `GET /api/v1/tasks/{task_id}/decision` retrieves it.
+The task evidence endpoint also includes the latest decision. Decision responses
+contain opaque task/patch/check references rather than host filesystem paths.
+
 ## Running tests
 
 Unit/security tests (including mocked Docker behavior):
